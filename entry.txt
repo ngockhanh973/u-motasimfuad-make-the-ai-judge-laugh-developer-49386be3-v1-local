@@ -1,1 +1,1 @@
-I fixed the bug. Turns out it was load-bearing — prod was standing on it.
+Nobody deployed anything — prod just updated itself from a branch I deleted in 2023.

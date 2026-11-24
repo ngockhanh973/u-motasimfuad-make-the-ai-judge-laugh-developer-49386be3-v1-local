@@ -1,51 +1,34 @@
-// Developer Excuses — v1 entry runner.
+// v2 entry runner for "Make the AI Judge Laugh: Developer Excuses".
 //
-// Job: take the single line shipped in entry.txt (sitting beside this
-// file) and copy it verbatim into the folder the grader points at with
-// MAKEFUN_OUTPUT_DIR. When that variable is absent we drop it into a
-// local out/ folder instead, so `node main.ts` works by hand too.
+// The joke is the single line in entry.txt next to this file. All this
+// script does is hand that line, byte for byte, to the grader: it reads
+// entry.txt, refuses anything blank or longer than the 200-character
+// cap, and writes the exact same bytes to entry.txt inside the output
+// folder. No trimming, no added newline, no cleverness — if the bytes
+// change between here and the grader, the laugh is not the one we wrote.
 //
-// Deliberately boring on purpose: the joke lives in entry.txt, this
-// script only has to be deterministic — same bytes in, same bytes out,
-// every run, with no trimming and no newline added or removed. It
-// refuses to ship anything the gate would reject (empty,
-// whitespace-only, or over 200 characters) rather than silently
-// handing the scorer a bad file.
+// Output folder: $MAKEFUN_OUTPUT_DIR when set, otherwise ./out/ so a
+// plain `node main.ts` still works for a local check. Run it twice and
+// the two outputs must hash identically — that is the whole contract.
 
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const MAX_CHARS = 200;
+const LIMIT = 200;
+const HERE = dirname(fileURLToPath(import.meta.url));
 
-function repoRoot(): string {
-  return dirname(fileURLToPath(import.meta.url));
+function die(message: string): never {
+  throw new Error(`entry rejected: ${message}`);
 }
 
-function outputFolder(root: string): string {
-  const fromEnv = process.env.MAKEFUN_OUTPUT_DIR;
-  return fromEnv ? resolve(fromEnv) : join(root, "out");
-}
+const raw = readFileSync(join(HERE, "entry.txt"), "utf8");
+const size = [...raw].length;
+if (size === 0 || size > LIMIT) die(`must be 1–${LIMIT} characters, got ${size}`);
+if (raw.trim() === "") die("must not be blank or whitespace-only");
 
-function loadEntry(root: string): string {
-  const source = join(root, "entry.txt");
-  let text: string;
-  try {
-    text = readFileSync(source, "utf8");
-  } catch {
-    throw new Error(`cannot read shipped entry: ${source}`);
-  }
-  const chars = Array.from(text).length;
-  if (chars < 1 || chars > MAX_CHARS || text.trim().length === 0) {
-    throw new Error(
-      `entry must be 1-${MAX_CHARS} non-blank characters, got ${chars}`,
-    );
-  }
-  return text;
-}
-
-const root = repoRoot();
-const line = loadEntry(root);
-const dest = outputFolder(root);
-mkdirSync(dest, { recursive: true });
-writeFileSync(join(dest, "entry.txt"), line, "utf8");
+const outDir = process.env.MAKEFUN_OUTPUT_DIR
+  ? resolve(process.env.MAKEFUN_OUTPUT_DIR)
+  : join(HERE, "out");
+mkdirSync(outDir, { recursive: true });
+writeFileSync(join(outDir, "entry.txt"), raw, "utf8");
